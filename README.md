@@ -26,7 +26,7 @@ const jsonObject = {
 	name: 'Bulbasaur', 
 	type: ['Grass', 'Poison']
 };
-let ok = await storage.put('pokemon', 1, jsonObject);
+const ok = await storage.put('pokemon', 1, jsonObject);
 if (!ok) {
 	console.error("Failed to put data");
 	return;
@@ -34,7 +34,7 @@ if (!ok) {
 
 // Blob data
 const someLargeData = new Blob([])
-ok = await storage.put('video', 'video-id-1', someLargeData);
+const ok = await storage.put('video', 'video-id-1', someLargeData);
 if (!ok) {
 	console.error("Failed to put data");
 	return;
@@ -55,7 +55,7 @@ console.log(`The size of the data is ${dataBlob.size}`);
 ```TypeScript
 /* DELETE */
 
-ok = await storage.delete('video', 'video-id-1');
+const ok = await storage.delete('video', 'video-id-1');
 if (!ok) {
 	console.error("Failed to delete data");
 	return;
