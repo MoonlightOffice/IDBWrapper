@@ -45,8 +45,8 @@ if (!ok) {
 /* GET */
 
 const dataBlob: Blob = await storage.get('video', 'video-id-1');
-if (poke1 === null) {
-	console.error("Failed to put data");
+if (dataBlob === null) {
+	console.error("Failed to get data");
 	return;
 }
 console.log(`The size of the data is ${dataBlob.size}`);
