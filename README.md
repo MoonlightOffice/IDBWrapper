@@ -2,6 +2,7 @@
 IDBWrapper is a simple and lightweight IndexedDB wrapper written in TypeScript. It is distributed as a single file module.
 
 ### Sample Usage
+
 ```TypeScript
 // Connect to IndexedDB
 import { newIDBWrapper, type IDBWrapperConfig } from './idb-wrapper';
@@ -59,5 +60,16 @@ const ok = await storage.delete('video', 'video-id-1');
 if (!ok) {
 	console.error("Failed to delete data");
 	return;
+}
+```
+
+### Transaction
+```TypeScript
+const tx = storage.begin()
+const ok = await tx.delete('video', 'video-id-1');
+if (!ok) {
+	tx.abort()
+} else {
+	tx.commit()
 }
 ```

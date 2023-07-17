@@ -6,7 +6,7 @@ interface IDBWrapper {
 
 	/**
 	 * Get data of the key from the specified store.
-	 * 
+	 *
 	 * @param store Object store's name
 	 * @param key The key of the data
 	 * @returns The data of the key. Returns null if the key doesn't exist or an error occurs.
@@ -15,7 +15,7 @@ interface IDBWrapper {
 
 	/**
 	 * Get all keys of the object store.
-	 * 
+	 *
 	 * @param store Object store's name
 	 * @return All keys in the object store
 	 */
@@ -23,7 +23,7 @@ interface IDBWrapper {
 
 	/**
 	 * Check if the specified key exists in the store.
-	 * 
+	 *
 	 * @param store Object store's name
 	 * @param key The key of your interest
 	 * @return true if it exists, false otherwise
@@ -32,7 +32,7 @@ interface IDBWrapper {
 
 	/**
 	 * Save the data in the given store. Overwrite data if the key already exists.
-	 * 
+	 *
 	 * @param store Object store's name
 	 * @param key The key of the data
 	 * @param value The data you want to save
@@ -42,12 +42,19 @@ interface IDBWrapper {
 
 	/**
 	 * Delete the data of the key.
-	 * 
+	 *
 	 * @param store Object store's name
 	 * @param key The key of your interest
 	 * @returns true if successful, false otherwise
 	 */
 	delete: (store: string, key: IDBValidKey) => Promise<boolean>;
+
+	/**
+	 * Return a transaction instance.
+	 *
+	 * @returns Transaction instance
+	 */
+	begin(): IDBTransactionWrapper;
 }
 
 export interface IDBWrapperConfig {
@@ -59,7 +66,7 @@ export interface IDBWrapperConfig {
 /**
  * Return the IDBWrapper instance which has the connection to specified database.
  * Throws an error if something went wrong.
- * 
+ *
  * @param config IndexedDB config
  * @returns IDBWrapper instance
  */
@@ -69,7 +76,7 @@ export async function newIDBWrapper(config: IDBWrapperConfig): Promise<IDBWrappe
 }
 
 /**
- * 
+ *
  * @param name The name of the database you want to delete
  * @returns true if successfull, false otherwise
  */
@@ -84,11 +91,14 @@ export async function deleteDatabase(name: string): Promise<boolean> {
 
 class IDBWrapperImpl implements IDBWrapper {
 	idbdatabase: IDBDatabase | undefined;
+	stores: string[];
 
-	constructor() {}
+	constructor(stores: string[]) {
+		this.stores = stores;
+	}
 
 	static async connect(config: IDBWrapperConfig): Promise<IDBWrapperImpl> {
-		const instance = new IDBWrapperImpl();
+		const instance = new IDBWrapperImpl(config.stores);
 
 		instance.idbdatabase = await new Promise<IDBDatabase>((resolve, reject) => {
 			const openRequest = indexedDB.open(config.dbname, config.version);
@@ -175,6 +185,147 @@ class IDBWrapperImpl implements IDBWrapper {
 	async delete(store: string, key: IDBValidKey): Promise<boolean> {
 		return new Promise((resolve) => {
 			const objStore = this.idbdatabase!.transaction([store], 'readwrite').objectStore(store);
+			const deleteRequest = objStore.delete(key);
+
+			deleteRequest.onsuccess = (_) => resolve(true);
+			deleteRequest.onerror = (_) => resolve(false);
+		});
+	}
+
+	begin(): IDBTransactionWrapper {
+		const tx = this.idbdatabase!.transaction(this.stores, 'readwrite');
+		const instance = new IDBTransactionWrapperImpl(tx);
+		return instance;
+	}
+}
+
+/** Transactionm */
+
+interface IDBTransactionWrapper {
+	/**
+	 * Commit transaction.
+	 */
+	commit: () => void;
+
+	/**
+	 * Rollback transaction.
+	 */
+	abort: () => void;
+
+	/**
+	 * Get data of the key from the specified store.
+	 *
+	 * @param store Object store's name
+	 * @param key The key of the data
+	 * @returns The data of the key. Returns null if the key doesn't exist or an error occurs.
+	 */
+	get: (store: string, key: IDBValidKey) => Promise<any>;
+
+	/**
+	 * Get all keys of the object store.
+	 *
+	 * @param store Object store's name
+	 * @return All keys in the object store
+	 */
+	getAllKeys(store: string): Promise<IDBValidKey[]>;
+
+	/**
+	 * Check if the specified key exists in the store.
+	 *
+	 * @param store Object store's name
+	 * @param key The key of your interest
+	 * @return true if it exists, false otherwise
+	 */
+	isKeyExist(store: string, key: IDBValidKey): Promise<boolean>;
+
+	/**
+	 * Save the data in the given store. Overwrite data if the key already exists.
+	 *
+	 * @param store Object store's name
+	 * @param key The key of the data
+	 * @param value The data you want to save
+	 * @returns true if successful, false otherwise
+	 */
+	put: (store: string, key: IDBValidKey, value: any) => Promise<boolean>;
+
+	/**
+	 * Delete the data of the key.
+	 *
+	 * @param store Object store's name
+	 * @param key The key of your interest
+	 * @returns true if successful, false otherwise
+	 */
+	delete: (store: string, key: IDBValidKey) => Promise<boolean>;
+}
+
+class IDBTransactionWrapperImpl implements IDBTransactionWrapper {
+	tx: IDBTransaction;
+
+	constructor(tx: IDBTransaction) {
+		this.tx = tx;
+	}
+
+	commit() {
+		this.tx.commit();
+	}
+
+	abort() {
+		this.tx.abort();
+	}
+
+	async getAllKeys(store: string): Promise<IDBValidKey[]> {
+		return new Promise((resolve, _) => {
+			const objStore = this.tx.objectStore(store);
+			const keysRequest = objStore.getAllKeys();
+
+			keysRequest.onsuccess = (_) => resolve(keysRequest.result);
+			keysRequest.onerror = (_) => resolve([]);
+		});
+	}
+
+	async isKeyExist(store: string, key: IDBValidKey): Promise<boolean> {
+		if (!this.tx.objectStoreNames.contains(store)) {
+			return false;
+		}
+
+		const keys = await this.getAllKeys(store);
+
+		if (keys.includes(key)) {
+			return true;
+		}
+
+		return false;
+	}
+
+	async get(store: string, key: IDBValidKey): Promise<any> {
+		return new Promise(async (resolve) => {
+			const exist = await this.isKeyExist(store, key);
+			if (!exist) {
+				resolve(null);
+				return;
+			}
+
+			const objStore = this.tx.objectStore(store);
+			const getRequest = objStore.get(key);
+
+			getRequest.onsuccess = (_) => resolve(getRequest.result['value']);
+			getRequest.onerror = (_) => resolve(null);
+		});
+	}
+
+	async put(store: string, key: IDBValidKey, value: any): Promise<boolean> {
+		return new Promise(async (resolve) => {
+			const objStore = this.tx.objectStore(store);
+			const putRequest = objStore.put({ key: key, value: value });
+
+			putRequest.onsuccess = (_) => resolve(true);
+			putRequest.onerror = (_) => resolve(false);
+		});
+	}
+
+	async delete(store: string, key: IDBValidKey): Promise<boolean> {
+		return new Promise((resolve) => {
+			const objStore = this.tx.objectStore(store);
 			const deleteRequest = objStore.delete(key);
 
 			deleteRequest.onsuccess = (_) => resolve(true);
