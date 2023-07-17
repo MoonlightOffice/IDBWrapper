@@ -1,4 +1,4 @@
-interface IDBWrapper {
+export interface IDBWrapper {
 	/**
 	 * Close database connection. It's safe to call this function even when the connection is already closed.
 	 */
