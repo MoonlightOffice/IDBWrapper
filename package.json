@@ -1,0 +1,19 @@
+{
+  "name": "idbwrapper",
+  "module": "index.ts",
+  "type": "module",
+  "scripts": {
+    "tidy": "bun fmt && bun check",
+    "test": "bun x playwright install chromium-headless-shell && vitest --run",
+    "test:clean": "find src -type d -name '__screenshots__' | xargs rm -rf"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@vitest/browser-playwright": "^5.1.0",
+    "@vitest/coverage-v8": "^5.1.0",
+    "vitest": "^5.1.0"
+  },
+  "peerDependencies": {
+    "typescript": "^7"
+  }
+}
